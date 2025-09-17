@@ -29,6 +29,20 @@ func NewFilled[T any](width, height int, value T) Array2D[T] {
 	}
 }
 
+// OfSlice creates a 2-dimensional array from the given slice. The length of
+// the slice must be equal to width * height.
+//
+// Note: This function does not create a copy of the provided slice.
+// Modifications to the original slice will affect the new Array2D instance.
+func OfSlice[T any](width, height int, slice []T) (Array2D[T], error) {
+	if len(slice) != width*height {
+		return Array2D[T]{}, fmt.Errorf("array2d: slice length %d does not match width*height %d", len(slice), width*height)
+	}
+	return Array2D[T]{
+		width: width, height: height, slice: slice,
+	}, nil
+}
+
 // OfJagged initializes a 2-dimensional array based on a jagged
 // slice of rows of values. Values from the jagged slice that are out of bounds
 // are ignored.

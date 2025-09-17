@@ -90,6 +90,43 @@ func TestArray2D_row(t *testing.T) {
 	}
 }
 
+func TestOfSlice(t *testing.T) {
+	t.Run("successful creation", func(t *testing.T) {
+		slice := []int{1, 2, 3, 4, 5, 6}
+		arr, err := OfSlice(3, 2, slice)
+		if err != nil {
+			t.Fatalf("OfSlice() returned an unexpected error: %v", err)
+		}
+
+		if arr.Width() != 3 || arr.Height() != 2 {
+			t.Errorf("want width=3, height=2, got width=%d, height=%d", arr.Width(), arr.Height())
+		}
+
+		want := "[[1 2 3] [4 5 6]]"
+		if got := arr.String(); got != want {
+			t.Errorf("want %q, got %q", want, got)
+		}
+
+		// Test that modifying the original slice affects the array
+		slice[0] = 99
+		if got := arr.Get(0, 0); got != 99 {
+			t.Errorf("modifying original slice did not affect array, want 99, got %d", got)
+		}
+	})
+
+	t.Run("length mismatch", func(t *testing.T) {
+		slice := []int{1, 2, 3}
+		_, err := OfSlice(2, 2, slice)
+		if err == nil {
+			t.Fatal("OfSlice() did not return an error for mismatched length")
+		}
+		want := "array2d: slice length 3 does not match width*height 4"
+		if err.Error() != want {
+			t.Errorf("want error %q, got %q", want, err.Error())
+		}
+	})
+}
+
 func assertLen[E any](t *testing.T, want int, slice []E) {
 	t.Helper()
 	if len(slice) != want {
