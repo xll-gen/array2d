@@ -29,23 +29,43 @@ func NewFilled[T any](width, height int, value T) Array2D[T] {
 	}
 }
 
-// OfSlice creates a 2-dimensional array from the given slice. The length of
-// the slice must be equal to width * height.
+// FromSlice creates a 2-dimensional array from the given slice. The length of
+// the slice must be equal to height * width.
 //
 // Note: This function does not create a copy of the provided slice.
 // Modifications to the original slice will affect the new Array2D instance.
-func OfSlice[T any](width, height int, slice []T) (Array2D[T], error) {
+func FromSlice[T any](height, width int, slice []T) (Array2D[T], error) {
 	if len(slice) != width*height {
-		return Array2D[T]{}, fmt.Errorf("array2d: slice length %d does not match width*height %d", len(slice), width*height)
+		return Array2D[T]{}, fmt.Errorf("array2d: slice length %d does not match height*width %d", len(slice), width*height)
 	}
 	return Array2D[T]{
 		width: width, height: height, slice: slice,
 	}, nil
 }
 
+// FromJagged creates a 2-dimensional array from a jagged slice.
+// It returns an error if the dimensions of the jagged slice exceed the specified
+// height or width.
+func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J) (Array2D[E], error) {
+	if len(jagged) > height {
+		return Array2D[E]{}, fmt.Errorf("array2d: jagged slice height %d exceeds specified height %d", len(jagged), height)
+	}
+	arr := New[E](width, height)
+	for y, row := range jagged {
+		if len(row) > width {
+			return Array2D[E]{}, fmt.Errorf("array2d: row %d width %d exceeds specified width %d", y, len(row), width)
+		}
+		copy(arr.Row(y), row)
+	}
+	return arr, nil
+}
+
 // OfJagged initializes a 2-dimensional array based on a jagged
 // slice of rows of values. Values from the jagged slice that are out of bounds
 // are ignored.
+//
+// This function is maintained for compatibility with the original
+// github.com/fufuok/utils/generic/array2d.
 func OfJagged[J ~[]S, S ~[]E, E any](width, height int, jagged J) Array2D[E] {
 	arr := New[E](width, height)
 	for y, row := range jagged {

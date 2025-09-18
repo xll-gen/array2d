@@ -90,12 +90,12 @@ func TestArray2D_row(t *testing.T) {
 	}
 }
 
-func TestOfSlice(t *testing.T) {
+func TestFromSlice(t *testing.T) {
 	t.Run("successful creation", func(t *testing.T) {
 		slice := []int{1, 2, 3, 4, 5, 6}
-		arr, err := OfSlice(3, 2, slice)
+		arr, err := FromSlice(2, 3, slice) // height, width
 		if err != nil {
-			t.Fatalf("OfSlice() returned an unexpected error: %v", err)
+			t.Fatalf("FromSlice() returned an unexpected error: %v", err)
 		}
 
 		if arr.Width() != 3 || arr.Height() != 2 {
@@ -116,11 +116,11 @@ func TestOfSlice(t *testing.T) {
 
 	t.Run("length mismatch", func(t *testing.T) {
 		slice := []int{1, 2, 3}
-		_, err := OfSlice(2, 2, slice)
+		_, err := FromSlice(2, 2, slice)
 		if err == nil {
-			t.Fatal("OfSlice() did not return an error for mismatched length")
+			t.Fatal("FromSlice() did not return an error for mismatched length")
 		}
-		want := "array2d: slice length 3 does not match width*height 4"
+		want := "array2d: slice length 3 does not match height*width 4"
 		if err.Error() != want {
 			t.Errorf("want error %q, got %q", want, err.Error())
 		}
@@ -132,4 +132,57 @@ func assertLen[E any](t *testing.T, want int, slice []E) {
 	if len(slice) != want {
 		t.Errorf("want len %d, got len %d", want, len(slice))
 	}
+}
+
+func TestFromJagged(t *testing.T) {
+	t.Run("successful creation", func(t *testing.T) {
+		jagged := [][]int{
+			{1, 2},
+			{3, 4, 5},
+		}
+		arr, err := FromJagged(2, 3, jagged)
+		if err != nil {
+			t.Fatalf("FromJagged() returned an unexpected error: %v", err)
+		}
+
+		if arr.Width() != 3 || arr.Height() != 2 {
+			t.Errorf("want width=3, height=2, got width=%d, height=%d", arr.Width(), arr.Height())
+		}
+
+		want := "[[1 2 0] [3 4 5]]"
+		if got := arr.String(); got != want {
+			t.Errorf("want %q, got %q", want, got)
+		}
+	})
+
+	t.Run("height exceeds specified height", func(t *testing.T) {
+		jagged := [][]int{
+			{1},
+			{2},
+			{3},
+		}
+		_, err := FromJagged(2, 1, jagged)
+		if err == nil {
+			t.Fatal("FromJagged() did not return an error for exceeding height")
+		}
+		want := "array2d: jagged slice height 3 exceeds specified height 2"
+		if err.Error() != want {
+			t.Errorf("want error %q, got %q", want, err.Error())
+		}
+	})
+
+	t.Run("width exceeds specified width", func(t *testing.T) {
+		jagged := [][]int{
+			{1},
+			{2, 3},
+		}
+		_, err := FromJagged(2, 1, jagged)
+		if err == nil {
+			t.Fatal("FromJagged() did not return an error for exceeding width")
+		}
+		want := "array2d: row 1 width 2 exceeds specified width 1"
+		if err.Error() != want {
+			t.Errorf("want error %q, got %q", want, err.Error())
+		}
+	})
 }
