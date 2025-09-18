@@ -1,6 +1,8 @@
 
 # array2d
 
+**Warning: This package is currently under development and the API is subject to change. It should be considered unstable.**
+
 Fork of [github.com/fufuok/utils/generic/array2d](https://github.com/fufuok/utils/commit/382fc5c9e91e33694350885335a3155e8f787959).
 
 ```go
@@ -12,6 +14,8 @@ Package array2d contains an implementation of a 2D array.
 ## Index
 
 - [type Array2D](<#type-array2d>)
+  - [func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J) (Array2D[E], error)](<#func-fromjagged>)
+  - [func FromSlice[T any](height, width int, slice []T) (Array2D[T], error)](<#func-fromslice>)
   - [func New[T any](width, height int) Array2D[T]](<#func-new>)
   - [func NewFilled[T any](width, height int, value T) Array2D[T]](<#func-newfilled>)
   - [func OfJagged[J ~[]S, S ~[]E, E any](width, height int, jagged J) Array2D[E]](<#func-ofjagged>)
@@ -132,6 +136,24 @@ func ExampleArray2D() {
 
 </p>
 </details>
+
+### func FromJagged
+
+```go
+func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J) (Array2D[E], error)
+```
+
+FromJagged creates a 2-dimensional array from a jagged slice. It returns an error if the dimensions of the jagged slice exceed the specified height or width.
+
+### func FromSlice
+
+```go
+func FromSlice[T any](height, width int, slice []T) (Array2D[T], error)
+```
+
+FromSlice creates a 2-dimensional array from the given slice. The length of the slice must be equal to height * width.
+
+Note: This function does not create a copy of the provided slice. Modifications to the original slice will affect the new Array2D instance.
 
 ### func New
 
