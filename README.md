@@ -16,16 +16,18 @@ Package array2d contains an implementation of a 2D array.
 - [type Array2D](<#type-array2d>)
   - [func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J) (Array2D[E], error)](<#func-fromjagged>)
   - [func FromSlice[T any](height, width int, slice []T) (Array2D[T], error)](<#func-fromslice>)
-  - [func New[T any](width, height int) Array2D[T]](<#func-new>)
-  - [func NewFilled[T any](width, height int, value T) Array2D[T]](<#func-newfilled>)
-  - [func OfJagged[J ~[]S, S ~[]E, E any](width, height int, jagged J) Array2D[E]](<#func-ofjagged>)
+  - [func New[T any](height, width int) Array2D[T]](<#func-new>)
+  - [func NewFilled[T any](height, width int, value T) Array2D[T]](<#func-newfilled>)
   - [func (a Array2D[T]) Copy() Array2D[T]](<#func-array2dt-copy>)
-  - [func (a Array2D[T]) Fill(x1, y1, x2, y2 int, value T)](<#func-array2dt-fill>)
-  - [func (a Array2D[T]) Get(x, y int) T](<#func-array2dt-get>)
+  - [func (a Array2D[T]) Fill(row1, col1, row2, col2 int, value T)](<#func-array2dt-fill>)
+  - [func (a Array2D[T]) Get(row, col int) T](<#func-array2dt-get>)
+  - [func (a *Array2D[T]) Iterator() *Iter[T]](<#func-array2dt-iterator>)
+  - [func (a *Array2D[T]) RowIterator(row int) *RowIter[T]](<#func-array2dt-rowiterator>)
+  - [func (a *Array2D[T]) ColIterator(col int) *ColIter[T]](<#func-array2dt-coliterator>)
   - [func (a Array2D[T]) Height() int](<#func-array2dt-height>)
-  - [func (a Array2D[T]) Row(y int) []T](<#func-array2dt-row>)
-  - [func (a Array2D[T]) RowSpan(x1, x2, y int) []T](<#func-array2dt-rowspan>)
-  - [func (a Array2D[T]) Set(x, y int, value T)](<#func-array2dt-set>)
+  - [func (a Array2D[T]) Row(row int) []T](<#func-array2dt-row>)
+  - [func (a Array2D[T]) RowSpan(row, col1, col2 int) []T](<#func-array2dt-rowspan>)
+  - [func (a Array2D[T]) Set(row, col int, value T)](<#func-array2dt-set>)
   - [func (a Array2D[T]) String() string](<#func-array2dt-string>)
   - [func (a Array2D[T]) Width() int](<#func-array2dt-width>)
 
@@ -44,7 +46,6 @@ type Array2D[T any] struct {
 <p>
 
 ```go package
-
 import (
 	"fmt"
 	"strings"
@@ -66,7 +67,7 @@ func (s Sudoku) PrintBoard() {
 			if x%3 == 0 {
 				sb.WriteString("| ")
 			}
-			val := s.arr.Get(x, y)
+			val := s.arr.Get(y, x)
 			if val == 0 {
 				sb.WriteByte(' ')
 			} else {
@@ -81,39 +82,30 @@ func (s Sudoku) PrintBoard() {
 }
 
 func ExampleArray2D() {
-	s := Sudoku{
-		arr: array2d.OfJagged(9, 9, [][]byte{
-			{5, 3, 0, 0, 7, 0, 0, 0, 0},
-			{6, 0, 0, 1, 9, 5, 0, 0, 0},
-			{0, 9, 8, 0, 0, 0, 0, 6, 0},
-			{8, 0, 0, 0, 6, 0, 0, 0, 3},
-			{4, 0, 0, 8, 0, 3, 0, 0, 1},
-			{7, 0, 0, 0, 2, 0, 0, 0, 6},
-			{0, 6, 0, 0, 0, 0, 2, 8, 0},
-			{0, 0, 0, 4, 1, 9, 0, 0, 5},
-			{0, 0, 0, 0, 8, 0, 0, 7, 9},
-		}),
+	arr, err := array2d.FromJagged(9, 9, [][]byte{
+		{5, 3, 0, 0, 7, 0, 0, 0, 0},
+		{6, 0, 0, 1, 9, 5, 0, 0, 0},
+		{0, 9, 8, 0, 0, 0, 0, 6, 0},
+		{8, 0, 0, 0, 6, 0, 0, 0, 3},
+		{4, 0, 0, 8, 0, 3, 0, 0, 1},
+		{7, 0, 0, 0, 2, 0, 0, 0, 6},
+		{0, 6, 0, 0, 0, 0, 2, 8, 0},
+		{0, 0, 0, 4, 1, 9, 0, 0, 5},
+		{0, 0, 0, 0, 8, 0, 0, 7, 9},
+	})
+	if err != nil {
+		panic(err)
 	}
 
-	s.arr.Set(2, 5, 3)
+	s := Sudoku{
+		arr: arr,
+	}
+
+	s.arr.Set(5, 2, 3)
 
 	s.PrintBoard()
-
-	// Output:
-	// +-------+-------+-------+
-	// | 5 3   |   7   |       |
-	// | 6     | 1 9 5 |       |
-	// |   9 8 |       |   6   |
-	// +-------+-------+-------+
-	// | 8     |   6   |     3 |
-	// | 4     | 8   3 |     1 |
-	// | 7   3 |   2   |     6 |
-	// +-------+-------+-------+
-	// |   6   |       | 2 8   |
-	// |       | 4 1 9 |     5 |
-	// |       |   8   |   7 9 |
-	// +-------+-------+-------+
 }
+
 ```
 
 #### Output
@@ -171,14 +163,6 @@ func NewFilled[T any](width, height int, value T) Array2D[T]
 
 NewFilled initializes a 2\-dimensional array with a value.
 
-### func OfJagged
-
-```go
-func OfJagged[J ~[]S, S ~[]E, E any](width, height int, jagged J) Array2D[E]
-```
-
-OfJagged initializes a 2\-dimensional array based on a jagged slice of rows of values. Values from the jagged slice that are out of bounds are ignored.
-
 ### func \(Array2D\[T\]\) Copy
 
 ```go
@@ -190,22 +174,47 @@ Copy returns a shallow copy of this array.
 ### func \(Array2D\[T\]\) Fill
 
 ```go
-func (a Array2D[T]) Fill(x1, y1, x2, y2 int, value T)
+func (a Array2D[T]) Fill(row1, col1, row2, col2 int, value T)
 ```
 
-Fill will assign all values inside the region to the specified value. The coordinates are inclusive, meaning all values from \[x1,y1\] including \[x1,y1\] to \[x2,y2\] including \[x2,y2\] are set.
+Fill will assign all values inside the region to the specified value. The coordinates are inclusive, meaning all values from [row1,col1] including [row1,col1] to [row2,col2] including [row2,col2] are set.
 
-The method sorts the arguments, so x2 may be lower than x1 and y2 may be lower than y1.
+The method sorts the arguments, so col2 may be lower than col1 and row2 may be lower than row1.
 
 ### func \(Array2D\[T\]\) Get
 
 ```go
-func (a Array2D[T]) Get(x, y int) T
+func (a Array2D[T]) Get(row, col int) T
 ```
 
 Get returns a value from the array.
 
 The function will panic on out\-of\-bounds access.
+
+### func \(\*Array2D\[T\]\) Iterator
+
+```go
+func (a *Array2D[T]) Iterator() *Iter[T]
+```
+
+Iterator returns an iterator for the 2D array. The iterator allows to range over all elements of the array, similar to sql.Rows.
+
+Example:
+```go
+it := arr.Iterator()
+for it.Next() {
+    row, col, val := it.Value()
+    // ...
+}
+```
+
+### func \(\*Array2D\[T\]\) RowIterator
+
+```go
+func (a *Array2D[T]) RowIterator(row int) *RowIter[T]
+```
+
+RowIterator returns an iterator for the rows of the 2D array.
 
 ### func \(Array2D\[T\]\) Height
 
@@ -226,7 +235,7 @@ Row returns a mutable slice for an entire row. Changing values in this slice wil
 ### func \(Array2D\[T\]\) RowSpan
 
 ```go
-func (a Array2D[T]) RowSpan(x1, x2, y int) []T
+func (a Array2D[T]) RowSpan(row, col1, col2 int) []T
 ```
 
 RowSpan returns a mutable slice for part of a row. Changing values in this slice will affect the array.
@@ -234,7 +243,7 @@ RowSpan returns a mutable slice for part of a row. Changing values in this slice
 ### func \(Array2D\[T\]\) Set
 
 ```go
-func (a Array2D[T]) Set(x, y int, value T)
+func (a Array2D[T]) Set(row, col int, value T)
 ```
 
 Set sets a value in the array.
