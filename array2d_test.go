@@ -203,6 +203,9 @@ func TestArray2D_rows(t *testing.T) {
 	}
 
 	rows := arr.Rows()
+	if rows.Index() != -1 {
+		t.Errorf("initial rows.Index() want -1, got %d", rows.Index())
+	}
 	defer func() {
 		if err := rows.Err(); err != nil {
 			t.Errorf("unexpected error during rows iteration: %v", err)
@@ -211,6 +214,9 @@ func TestArray2D_rows(t *testing.T) {
 
 	rowIndex := 0
 	for rows.Next() {
+		if rows.Index() != rowIndex {
+			t.Errorf("rows.Index() want %d, got %d", rowIndex, rows.Index())
+		}
 		row := make([]int, arr.Width())
 		if err := rows.Scan(&row); err != nil {
 			t.Fatalf("error scanning row: %v", err)
@@ -240,9 +246,15 @@ func TestArray2D_cols(t *testing.T) {
 	}
 
 	cols := arr.Cols()
+	if cols.Index() != -1 {
+		t.Errorf("initial cols.Index() want -1, got %d", cols.Index())
+	}
 	colIndex := 0
 
 	for cols.Next() {
+		if cols.Index() != colIndex {
+			t.Errorf("cols.Index() want %d, got %d", colIndex, cols.Index())
+		}
 		col := make([]int, arr.Height())
 		if err := cols.Scan(&col); err != nil {
 			t.Fatalf("error scanning col: %v", err)
@@ -351,6 +363,90 @@ func TestFromJagged(t *testing.T) {
 		}
 		if !errors.Is(err, ErrShape) {
 			t.Errorf("want error to be ErrShape, but it was not. got: %v", err)
+		}
+	})
+}
+
+func TestArray2D_ToSlices(t *testing.T) {
+	t.Run("row-major zero-copy", func(t *testing.T) {
+		arr := New[int](2, 3)
+		_ = arr.Set(0, 0, 1)
+		_ = arr.Set(0, 1, 2)
+		_ = arr.Set(1, 2, 6)
+
+		slices := arr.ToSlices()
+		want := [][]int{{1, 2, 0}, {0, 0, 6}}
+		if !reflect.DeepEqual(slices, want) {
+			t.Errorf("ToSlices() got = %v, want %v", slices, want)
+		}
+
+		// Modify slice and check if original array is affected
+		slices[0][2] = 3
+		got, _ := arr.Get(0, 2)
+		if got != 3 {
+			t.Errorf("modification on slice did not affect original array. got %d, want 3", got)
+		}
+	})
+
+	t.Run("column-major copy", func(t *testing.T) {
+		arr := New[int](2, 3, true) // colMajor
+		_ = arr.Set(0, 0, 1)
+		_ = arr.Set(0, 1, 2)
+		_ = arr.Set(1, 2, 6)
+
+		slices := arr.ToSlices()
+		want := [][]int{{1, 2, 0}, {0, 0, 6}}
+		if !reflect.DeepEqual(slices, want) {
+			t.Errorf("ToSlices() got = %v, want %v", slices, want)
+		}
+
+		// Modify slice and check if original array is NOT affected
+		slices[0][2] = 3
+		got, _ := arr.Get(0, 2)
+		if got != 0 {
+			t.Errorf("modification on slice affected original array. got %d, want 0", got)
+		}
+	})
+}
+
+func TestArray2D_ToSlicesByCol(t *testing.T) {
+	t.Run("row-major copy", func(t *testing.T) {
+		arr := New[int](3, 2)
+		_ = arr.Set(0, 0, 1)
+		_ = arr.Set(1, 0, 2)
+		_ = arr.Set(2, 1, 6)
+
+		slices := arr.ToSlicesByCol()
+		want := [][]int{{1, 2, 0}, {0, 0, 6}}
+		if !reflect.DeepEqual(slices, want) {
+			t.Errorf("ToSlicesByCol() got = %v, want %v", slices, want)
+		}
+
+		// Modify slice and check if original array is NOT affected
+		slices[0][2] = 3
+		got, _ := arr.Get(2, 0)
+		if got != 0 {
+			t.Errorf("modification on slice affected original array. got %d, want 0", got)
+		}
+	})
+
+	t.Run("column-major zero-copy", func(t *testing.T) {
+		arr := New[int](3, 2, true) // colMajor
+		_ = arr.Set(0, 0, 1)
+		_ = arr.Set(1, 0, 2)
+		_ = arr.Set(2, 1, 6)
+
+		slices := arr.ToSlicesByCol()
+		want := [][]int{{1, 2, 0}, {0, 0, 6}}
+		if !reflect.DeepEqual(slices, want) {
+			t.Errorf("ToSlicesByCol() got = %v, want %v", slices, want)
+		}
+
+		// Modify slice and check if original array is affected
+		slices[0][2] = 3
+		got, _ := arr.Get(2, 0)
+		if got != 3 {
+			t.Errorf("modification on slice did not affect original array. got %d, want 3", got)
 		}
 	})
 }

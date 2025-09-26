@@ -122,6 +122,46 @@ func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J, colMajor ...
 	return arr, nil
 }
 
+// ToSlices returns a slice of slices representation of the array, organized by rows.
+//
+// For row-major arrays, this is a zero-copy operation in terms of element data.
+// It returns a slice of sub-slices of the original underlying slice. Modifications
+// to the returned slices will affect the original array.
+//
+// For column-major arrays, this operation involves copying all elements into a
+// new set of slices, as row data is not contiguous in memory. Modifications
+// to the returned slices will NOT affect the original array.
+func (a Array2D[T]) ToSlices() [][]T {
+	if a.height == 0 {
+		return nil
+	}
+	slices := make([][]T, a.height)
+	for i := 0; i < a.height; i++ {
+		slices[i], _ = a.Row(i)
+	}
+	return slices
+}
+
+// ToSlicesByCol returns a slice of slices representation of the array, organized by columns.
+//
+// For column-major arrays, this is a zero-copy operation in terms of element data.
+// It returns a slice of sub-slices of the original underlying slice. Modifications
+// to the returned slices will affect the original array.
+//
+// For row-major arrays, this operation involves copying all elements into a
+// new set of slices, as column data is not contiguous in memory. Modifications
+// to the returned slices will NOT affect the original array.
+func (a Array2D[T]) ToSlicesByCol() [][]T {
+	if a.width == 0 {
+		return nil
+	}
+	slices := make([][]T, a.width)
+	for i := 0; i < a.width; i++ {
+		slices[i], _ = a.Col(i)
+	}
+	return slices
+}
+
 // Array2D is a 2-dimensional array.
 type Array2D[T any] struct {
 	height, width int
@@ -369,6 +409,11 @@ func (r *Rows[T]) Next() bool {
 	return true
 }
 
+// Index returns the current row index. It returns -1 if Next has not been called yet.
+func (r *Rows[T]) Index() int {
+	return r.row
+}
+
 // Scan copies the current row's data into the provided destination slice.
 // The destination slice must have a length equal to the array's width.
 func (r *Rows[T]) Scan(dest *[]T) error {
@@ -427,6 +472,11 @@ func (c *Cols[T]) Next() bool {
 	}
 	c.col++
 	return true
+}
+
+// Index returns the current column index. It returns -1 if Next has not been called yet.
+func (c *Cols[T]) Index() int {
+	return c.col
 }
 
 // Scan copies the current column's data into the provided destination slice.
