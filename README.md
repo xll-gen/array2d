@@ -1,4 +1,3 @@
-
 # array2d
 
 **Warning: This package is currently under development and the API is subject to change. It should be considered unstable.**
@@ -13,28 +12,29 @@ Package array2d contains an implementation of a 2D array.
 
 ## Index
 
-- [type Array2D](<#type-array2d>)
-  - [func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J) (Array2D[E], error)](<#func-fromjagged>)
-  - [func FromSlice[T any](height, width int, slice []T) (Array2D[T], error)](<#func-fromslice>)
-  - [func New[T any](height, width int) Array2D[T]](<#func-new>)
-  - [func NewFilled[T any](height, width int, value T) Array2D[T]](<#func-newfilled>)
-  - [func (a Array2D[T]) Copy() Array2D[T]](<#func-array2dt-copy>)
-  - [func (a Array2D[T]) Fill(row1, col1, row2, col2 int, value T)](<#func-array2dt-fill>)
-  - [func (a Array2D[T]) Get(row, col int) T](<#func-array2dt-get>)
-  - [func (a *Array2D[T]) Iterator() *Iter[T]](<#func-array2dt-iterator>)
-  - [func (a *Array2D[T]) RowIterator(row int) *RowIter[T]](<#func-array2dt-rowiterator>)
-  - [func (a *Array2D[T]) ColIterator(col int) *ColIter[T]](<#func-array2dt-coliterator>)
-  - [func (a Array2D[T]) Height() int](<#func-array2dt-height>)
-  - [func (a Array2D[T]) Row(row int) []T](<#func-array2dt-row>)
-  - [func (a Array2D[T]) RowSpan(row, col1, col2 int) []T](<#func-array2dt-rowspan>)
-  - [func (a Array2D[T]) Set(row, col int, value T)](<#func-array2dt-set>)
-  - [func (a Array2D[T]) String() string](<#func-array2dt-string>)
-  - [func (a Array2D[T]) Width() int](<#func-array2dt-width>)
-
+- [array2d](#array2d)
+	- [Index](#index)
+	- [type Array2D](#type-array2d)
+		- [func New](#func-new)
+		- [func NewFilled](#func-newfilled)
+		- [func FromSlice](#func-fromslice)
+		- [func FromJagged](#func-fromjagged)
+		- [func (Array2D\[T\]) Row](#func-array2dt-row)
+		- [func (Array2D\[T\]) Col](#func-array2dt-col)
+		- [func (Array2D\[T\]) Fill](#func-array2dt-fill)
+		- [func (Array2D\[T\]) Get](#func-array2dt-get)
+		- [func (Array2D\[T\]) Set](#func-array2dt-set)
+		- [func (Array2D\[T\]) Copy](#func-array2dt-copy)
+		- [func (Array2D\[T\]) String](#func-array2dt-string)
+		- [func (Array2D\[T\]) Height](#func-array2dt-height)
+		- [func (Array2D\[T\]) Width](#func-array2dt-width)
+		- [func (\*Array2D\[T\]) Rows](#func-array2dt-rows)
+		- [func (\*Array2D\[T\]) Cols](#func-array2dt-cols)
+	- [License](#license)
 
 ## type Array2D
 
-Array2D is a 2\-dimensional array.
+Array2D is a 2-dimensional array.
 
 ```go
 type Array2D[T any] struct {
@@ -42,128 +42,105 @@ type Array2D[T any] struct {
 }
 ```
 
-<details><summary>Example</summary>
-<p>
-
-```go package
-import (
-	"fmt"
-	"strings"
-
-	"github.com/xll-gen/array2d"
-)
-
-type Sudoku struct {
-	arr array2d.Array2D[byte]
-}
-
-func (s Sudoku) PrintBoard() {
-	var sb strings.Builder
-	for y := 0; y < s.arr.Height(); y++ {
-		if y%3 == 0 {
-			sb.WriteString("+-------+-------+-------+\n")
-		}
-		for x := 0; x < s.arr.Width(); x++ {
-			if x%3 == 0 {
-				sb.WriteString("| ")
-			}
-			val := s.arr.Get(y, x)
-			if val == 0 {
-				sb.WriteByte(' ')
-			} else {
-				fmt.Fprint(&sb, val)
-			}
-			sb.WriteByte(' ')
-		}
-		sb.WriteString("|\n")
-	}
-	sb.WriteString("+-------+-------+-------+\n")
-	fmt.Print(sb.String())
-}
-
-func ExampleArray2D() {
-	arr, err := array2d.FromJagged(9, 9, [][]byte{
-		{5, 3, 0, 0, 7, 0, 0, 0, 0},
-		{6, 0, 0, 1, 9, 5, 0, 0, 0},
-		{0, 9, 8, 0, 0, 0, 0, 6, 0},
-		{8, 0, 0, 0, 6, 0, 0, 0, 3},
-		{4, 0, 0, 8, 0, 3, 0, 0, 1},
-		{7, 0, 0, 0, 2, 0, 0, 0, 6},
-		{0, 6, 0, 0, 0, 0, 2, 8, 0},
-		{0, 0, 0, 4, 1, 9, 0, 0, 5},
-		{0, 0, 0, 0, 8, 0, 0, 7, 9},
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	s := Sudoku{
-		arr: arr,
-	}
-
-	s.arr.Set(5, 2, 3)
-
-	s.PrintBoard()
-}
-
-```
-
-#### Output
-
-```
-+-------+-------+-------+
-| 5 3   |   7   |       |
-| 6     | 1 9 5 |       |
-|   9 8 |       |   6   |
-+-------+-------+-------+
-| 8     |   6   |     3 |
-| 4     | 8   3 |     1 |
-| 7   3 |   2   |     6 |
-+-------+-------+-------+
-|   6   |       | 2 8   |
-|       | 4 1 9 |     5 |
-|       |   8   |   7 9 |
-+-------+-------+-------+
-```
-
-</p>
-</details>
-
-### func FromJagged
+### func New
 
 ```go
-func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J) (Array2D[E], error)
+func New[T any](height, width int, colMajor ...bool) Array2D[T]
 ```
 
-FromJagged creates a 2-dimensional array from a jagged slice. It returns an error if the dimensions of the jagged slice exceed the specified height or width.
+New initializes a 2-dimensional array with all zero values.  
+By default, it creates a row-major array.  
+To create a column-major array, pass `true` as the optional `colMajor` argument.
+
+### func NewFilled
+
+```go
+func NewFilled[T any](height, width int, value T, colMajor ...bool) Array2D[T]
+```
+
+NewFilled initializes a 2-dimensional array with a value.  
+By default, it creates a row-major array.  
+To create a column-major array, pass `true` as the optional `colMajor` argument.
 
 ### func FromSlice
 
 ```go
-func FromSlice[T any](height, width int, slice []T) (Array2D[T], error)
+func FromSlice[T any](height, width int, slice []T, colMajor ...bool) (Array2D[T], error)
 ```
 
 FromSlice creates a 2-dimensional array from the given slice. The length of the slice must be equal to height * width.
 
 Note: This function does not create a copy of the provided slice. Modifications to the original slice will affect the new Array2D instance.
 
-### func New
+By default, it creates a row-major array.  
+To create a column-major array, pass `true` as the optional `colMajor` argument.
+
+### func FromJagged
 
 ```go
-func New[T any](width, height int) Array2D[T]
+func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J, colMajor ...bool) (Array2D[E], error)
 ```
 
-New initializes a 2\-dimensional array with all zero values.
+FromJagged creates a 2-dimensional array from a jagged slice. It returns an error if the dimensions of the jagged slice exceed the specified height or width.
 
-### func NewFilled
+By default, it creates a row-major array.  
+To create a column-major array, pass `true` as the optional `colMajor` argument.
+
+### func (Array2D[T]) Row
 
 ```go
-func NewFilled[T any](width, height int, value T) Array2D[T]
+func (a Array2D[T]) Row(row int) ([]T, bool)
 ```
 
-NewFilled initializes a 2\-dimensional array with a value.
+Row returns a slice for an entire row.
 
-### func \(Array2D\[T\]\) Copy
+- For row-major arrays, this function returns a mutable slice. Changing values in this slice will affect the array.
+- For column-major arrays, this function returns a new slice containing a copy of the data, so modifications to it will not affect the original array.
+- It returns `false` if the row index is out of bounds.
+
+### func (Array2D[T]) Col
+
+```go
+func (a Array2D[T]) Col(col int) ([]T, bool)
+```
+
+Col returns a slice for an entire column.
+
+- For column-major arrays, this function returns a mutable slice. Changing values in this slice will affect the array.
+- For row-major arrays, this function returns a new slice containing a copy of the data, so modifications to it will not affect the original array.
+- It returns `false` if the column index is out of bounds.
+
+### func (Array2D[T]) Fill
+
+```go
+func (a Array2D[T]) Fill(row1, col1, row2, col2 int, value T) error
+```
+
+Fill will assign all values inside the region to the specified value. The coordinates are inclusive, meaning all values from [row1,col1] including [row1,col1] to [row2,col2] including [row2,col2] are set.
+
+It returns an error if any of the coordinates are out of bounds.
+
+### func (Array2D[T]) Get
+
+```go
+func (a Array2D[T]) Get(row, col int) (T, bool)
+```
+
+Get returns a value from the array.
+
+It returns the zero value for T and `false` if the access is out-of-bounds.
+
+### func (Array2D[T]) Set
+
+```go
+func (a Array2D[T]) Set(row, col int, value T) error
+```
+
+Set sets a value in the array.
+
+It returns an error on out-of-bounds access.
+
+### func (Array2D[T]) Copy
 
 ```go
 func (a Array2D[T]) Copy() Array2D[T]
@@ -171,86 +148,7 @@ func (a Array2D[T]) Copy() Array2D[T]
 
 Copy returns a shallow copy of this array.
 
-### func \(Array2D\[T\]\) Fill
-
-```go
-func (a Array2D[T]) Fill(row1, col1, row2, col2 int, value T)
-```
-
-Fill will assign all values inside the region to the specified value. The coordinates are inclusive, meaning all values from [row1,col1] including [row1,col1] to [row2,col2] including [row2,col2] are set.
-
-The method sorts the arguments, so col2 may be lower than col1 and row2 may be lower than row1.
-
-### func \(Array2D\[T\]\) Get
-
-```go
-func (a Array2D[T]) Get(row, col int) T
-```
-
-Get returns a value from the array.
-
-The function will panic on out\-of\-bounds access.
-
-### func \(\*Array2D\[T\]\) Iterator
-
-```go
-func (a *Array2D[T]) Iterator() *Iter[T]
-```
-
-Iterator returns an iterator for the 2D array. The iterator allows to range over all elements of the array, similar to sql.Rows.
-
-Example:
-```go
-it := arr.Iterator()
-for it.Next() {
-    row, col, val := it.Value()
-    // ...
-}
-```
-
-### func \(\*Array2D\[T\]\) RowIterator
-
-```go
-func (a *Array2D[T]) RowIterator(row int) *RowIter[T]
-```
-
-RowIterator returns an iterator for the rows of the 2D array.
-
-### func \(Array2D\[T\]\) Height
-
-```go
-func (a Array2D[T]) Height() int
-```
-
-Height returns the height of this array. The maximum y value is Height\(\)\-1.
-
-### func \(Array2D\[T\]\) Row
-
-```go
-func (a Array2D[T]) Row(y int) []T
-```
-
-Row returns a mutable slice for an entire row. Changing values in this slice will affect the array.
-
-### func \(Array2D\[T\]\) RowSpan
-
-```go
-func (a Array2D[T]) RowSpan(row, col1, col2 int) []T
-```
-
-RowSpan returns a mutable slice for part of a row. Changing values in this slice will affect the array.
-
-### func \(Array2D\[T\]\) Set
-
-```go
-func (a Array2D[T]) Set(row, col int, value T)
-```
-
-Set sets a value in the array.
-
-The function will panic on out\-of\-bounds access.
-
-### func \(Array2D\[T\]\) String
+### func (Array2D[T]) String
 
 ```go
 func (a Array2D[T]) String() string
@@ -258,17 +156,65 @@ func (a Array2D[T]) String() string
 
 String returns a string representation of this array.
 
-### func \(Array2D\[T\]\) Width
+### func (Array2D[T]) Height
+
+```go
+func (a Array2D[T]) Height() int
+```
+
+Height returns the height of this array. The maximum y value is Height()-1.
+
+### func (Array2D[T]) Width
 
 ```go
 func (a Array2D[T]) Width() int
 ```
 
-Width returns the width of this array. The maximum x value is Width\(\)\-1.
+Width returns the width of this array. The maximum x value is Width()-1.
+
+### func (*Array2D[T]) Rows
+
+```go
+func (a *Array2D[T]) Rows() *Rows[T]
+```
+
+Rows returns an iterator over the rows of the array, similar to sql.Rows.
+
+**Example:**
+```go
+rows := arr.Rows()
+rowData := make([]int, arr.Width())
+for rows.Next() {
+    if err := rows.Scan(&rowData); err != nil {
+        // handle error
+    }
+    // use rowData
+}
+```
+
+### func (*Array2D[T]) Cols
+
+```go
+func (a *Array2D[T]) Cols() *Cols[T]
+```
+
+Cols returns an iterator over the columns of the array, similar to sql.Rows.
+
+**Example:**
+```go
+cols := arr.Cols()
+colData := make([]int, arr.Height())
+for cols.Next() {
+    if err := cols.Scan(&colData); err != nil {
+        // handle error
+    }
+    // use colData
+}
+```
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-Copyright (c) 2025 xll-gen
+Copyright (c) 2025 xll-gen  
 Copyright (c) 2021-2024 fufuok

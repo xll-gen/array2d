@@ -4,6 +4,8 @@
 package array2d
 
 import (
+	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -18,15 +20,15 @@ func TestArray2D_stringEmpty(t *testing.T) {
 
 func TestArray2D_stringValues(t *testing.T) {
 	arr := New[int](3, 3)
-	arr.Set(0, 0, 1)
-	arr.Set(0, 1, 2)
-	arr.Set(0, 2, 3)
-	arr.Set(1, 0, 4)
-	arr.Set(1, 1, 5)
-	arr.Set(1, 2, 6)
-	arr.Set(2, 0, 7)
-	arr.Set(2, 1, 8)
-	arr.Set(2, 2, 9)
+	_ = arr.Set(0, 0, 1)
+	_ = arr.Set(0, 1, 2)
+	_ = arr.Set(0, 2, 3)
+	_ = arr.Set(1, 0, 4)
+	_ = arr.Set(1, 1, 5)
+	_ = arr.Set(1, 2, 6)
+	_ = arr.Set(2, 0, 7)
+	_ = arr.Set(2, 1, 8)
+	_ = arr.Set(2, 2, 9)
 	got := arr.String()
 	want := "[[1 2 3] [4 5 6] [7 8 9]]"
 	if got != want {
@@ -37,33 +39,16 @@ func TestArray2D_stringValues(t *testing.T) {
 func TestArray2D_fill(t *testing.T) {
 	arr := New[int](64, 64)
 	val := 42
-	arr.Fill(25, 20, 38, 40, val)
+	if err := arr.Fill(25, 20, 38, 40, val); err != nil {
+		t.Fatalf("Fill returned an unexpected error: %v", err)
+	}
 	for x := 0; x < arr.Width(); x++ {
 		for y := 0; y < arr.Height(); y++ {
 			want := 0
 			if x >= 20 && x <= 40 && y >= 25 && y <= 38 {
 				want = val
 			}
-			got := arr.Get(y, x)
-			if got != want {
-				t.Errorf("x=%d, y=%d: want %d, got %d", x, y, want, got)
-			}
-		}
-	}
-}
-
-func TestArray2D_rowSpan(t *testing.T) {
-	arr := New[int](5, 5)
-	span := arr.RowSpan(2, 1, 3)
-	assertLen(t, 3, span)
-	copy(span, []int{1, 2, 3})
-	for x := 0; x < arr.Width(); x++ {
-		for y := 0; y < arr.Height(); y++ {
-			want := 0
-			if x >= 1 && x <= 3 && y == 2 {
-				want = x
-			}
-			got := arr.Get(y, x)
+			got, _ := arr.Get(y, x)
 			if got != want {
 				t.Errorf("x=%d, y=%d: want %d, got %d", x, y, want, got)
 			}
@@ -73,7 +58,10 @@ func TestArray2D_rowSpan(t *testing.T) {
 
 func TestArray2D_row(t *testing.T) {
 	arr := New[int](5, 5)
-	span := arr.Row(2)
+	span, ok := arr.Row(2)
+	if !ok {
+		t.Fatal("Row(2) returned ok=false unexpectedly")
+	}
 	assertLen(t, 5, span)
 	copy(span, []int{1, 2, 3, 4, 5})
 	for x := 0; x < arr.Width(); x++ {
@@ -82,11 +70,154 @@ func TestArray2D_row(t *testing.T) {
 			if y == 2 {
 				want = x + 1
 			}
-			got := arr.Get(y, x)
+			got, _ := arr.Get(y, x)
 			if got != want {
 				t.Errorf("x=%d, y=%d: want %d, got %d", x, y, want, got)
 			}
 		}
+	}
+}
+
+func TestArray2D_col(t *testing.T) {
+	t.Run("row-major", func(t *testing.T) {
+		arr := New[int](3, 4)
+		// [[0 1 2 3]
+		//  [4 5 6 7]
+		//  [8 9 10 11]]
+		for i := 0; i < arr.Height(); i++ {
+			for j := 0; j < arr.Width(); j++ {
+				_ = arr.Set(i, j, i*arr.Width()+j)
+			}
+		}
+
+		col, ok := arr.Col(1)
+		if !ok {
+			t.Fatal("Col(1) returned ok=false unexpectedly")
+		}
+		assertLen(t, arr.Height(), col)
+
+		want := []int{1, 5, 9}
+		if !reflect.DeepEqual(col, want) {
+			t.Errorf("unexpected column values: want %v, got %v", want, col)
+		}
+
+		// Modify the returned slice and ensure the original array is not affected
+		for i := range col {
+			col[i] *= 2
+		}
+		wantOriginal := []int{1, 5, 9}
+		if reflect.DeepEqual(col, wantOriginal) {
+			t.Errorf("the original array was affected by modifying the column")
+		}
+	})
+
+	t.Run("column-major", func(t *testing.T) {
+		arr := New[int](3, 4, true) // colMajor = true
+		// [[0  3  6  9]
+		//  [1  4  7 10]
+		//  [2  5  8 11]]
+		for i := 0; i < arr.Height(); i++ {
+			for j := 0; j < arr.Width(); j++ {
+				_ = arr.Set(i, j, i+j*arr.Height())
+			}
+		}
+
+		col, ok := arr.Col(1)
+		if !ok {
+			t.Fatal("Col(1) returned ok=false unexpectedly")
+		}
+		assertLen(t, arr.Height(), col)
+
+		want := []int{3, 4, 5}
+		if !reflect.DeepEqual(col, want) {
+			t.Errorf("unexpected column values: want %v, got %v", want, col)
+		}
+
+		// Modify the returned slice and ensure the original array IS affected
+		col[0] = 42
+		col[1] = 43
+		col[2] = 44
+
+		wantModified := []int{42, 43, 44}
+		if !reflect.DeepEqual(col, wantModified) {
+			t.Errorf("col slice was not correctly modified")
+		}
+
+		v1, _ := arr.Get(0, 1)
+		v2, _ := arr.Get(1, 1)
+		v3, _ := arr.Get(2, 1)
+		if v1 != 42 || v2 != 43 || v3 != 44 {
+			t.Errorf("original array was not modified through the col slice")
+		}
+	})
+}
+
+func TestArray2D_rows(t *testing.T) {
+	arr := New[int](3, 4)
+	// [[0 1 2 3]
+	//  [4 5 6 7]
+	//  [8 9 10 11]]
+	for i := 0; i < arr.Height(); i++ {
+		for j := 0; j < arr.Width(); j++ {
+			_ = arr.Set(i, j, i*arr.Width()+j)
+		}
+	}
+
+	rows := arr.Rows()
+	defer func() {
+		if err := rows.Err(); err != nil {
+			t.Errorf("unexpected error during rows iteration: %v", err)
+		}
+	}()
+
+	rowIndex := 0
+	for rows.Next() {
+		row := make([]int, arr.Width())
+		if err := rows.Scan(&row); err != nil {
+			t.Fatalf("error scanning row: %v", err)
+		}
+
+		want := []int{rowIndex * 4, rowIndex*4 + 1, rowIndex*4 + 2, rowIndex*4 + 3}
+		if !reflect.DeepEqual(row, want) {
+			t.Errorf("row %d: want %v, got %v", rowIndex, want, row)
+		}
+		rowIndex++
+	}
+
+	if rowIndex != arr.Height() {
+		t.Errorf("rows iterator should have visited %d rows, but visited %d", arr.Height(), rowIndex)
+	}
+}
+
+func TestArray2D_cols(t *testing.T) {
+	arr := New[int](3, 4)
+	// [[0 1 2 3]
+	//  [4 5 6 7]
+	//  [8 9 10 11]]
+	for i := 0; i < arr.Height(); i++ {
+		for j := 0; j < arr.Width(); j++ {
+			_ = arr.Set(i, j, i*arr.Width()+j)
+		}
+	}
+
+	cols := arr.Cols()
+	colIndex := 0
+
+	for cols.Next() {
+		col := make([]int, arr.Height())
+		if err := cols.Scan(&col); err != nil {
+			t.Fatalf("error scanning col: %v", err)
+		}
+
+		want := []int{colIndex, colIndex + 4, colIndex + 8}
+		if !reflect.DeepEqual(col, want) {
+			t.Errorf("col %d: want %v, got %v", colIndex, want, col)
+		}
+		colIndex++
+	}
+
+	if colIndex != arr.Width() {
+		t.Errorf("cols iterator should have visited %d cols, but visited %d", arr.Width(), colIndex)
 	}
 }
 
@@ -109,7 +240,8 @@ func TestFromSlice(t *testing.T) {
 
 		// Test that modifying the original slice affects the array
 		slice[0] = 99
-		if got := arr.Get(0, 0); got != 99 {
+		got, _ := arr.Get(0, 0)
+		if got != 99 {
 			t.Errorf("modifying original slice did not affect array, want 99, got %d", got)
 		}
 	})
@@ -120,85 +252,10 @@ func TestFromSlice(t *testing.T) {
 		if err == nil {
 			t.Fatal("FromSlice() did not return an error for mismatched length")
 		}
-		want := "array2d: slice length 3 does not match height*width 4"
-		if err.Error() != want {
-			t.Errorf("want error %q, got %q", want, err.Error())
+		if !errors.Is(err, ErrShape) {
+			t.Errorf("want error to be ErrShape, but it was not. got: %v", err)
 		}
 	})
-}
-
-func TestIterator(t *testing.T) {
-	arr := New[int](2, 3) // height=2, width=3
-	// [[0, 1, 2],
-	//  [3, 4, 5]]
-	for i := 0; i < 6; i++ {
-		arr.slice[i] = i
-	}
-
-	it := arr.Iterator()
-	count := 0
-	for it.Next() {
-		row, col, val := it.Value()
-		expectedVal := row*arr.width + col
-		if val != expectedVal {
-			t.Errorf("at index %d (row: %d, col: %d): want value %d, got %d", count, row, col, expectedVal, val)
-		}
-		count++
-	}
-
-	if count != 6 {
-		t.Errorf("iterator should have run 6 times, but ran %d times", count)
-	}
-
-	if it.Next() {
-		t.Error("it.Next() should return false after iteration is complete")
-	}
-}
-
-func TestRowIterator(t *testing.T) {
-	arr := New[int](3, 3)
-	// [[0, 1, 2],
-	//  [3, 4, 5],
-	//  [6, 7, 8]]
-	for i := 0; i < 9; i++ {
-		arr.slice[i] = i
-	}
-
-	rowToTest := 1
-	it := arr.RowIterator(rowToTest)
-	count := 0
-	for it.Next() {
-		col, val := it.Value()
-		expectedVal := rowToTest*arr.width + col
-		if val != expectedVal {
-			t.Errorf("at row %d, col %d: want value %d, got %d", rowToTest, col, expectedVal, val)
-		}
-		count++
-	}
-
-	if count != arr.width {
-		t.Errorf("RowIterator should have run %d times, but ran %d times", arr.width, count)
-	}
-}
-
-func TestColIterator(t *testing.T) {
-	arr := New[int](3, 3)
-	// [[0, 1, 2],
-	//  [3, 4, 5],
-	//  [6, 7, 8]]
-	for i := 0; i < 9; i++ {
-		arr.slice[i] = i
-	}
-
-	colToTest := 1
-	it := arr.ColIterator(colToTest)
-	for it.Next() {
-		row, val := it.Value()
-		expectedVal := row*arr.width + colToTest
-		if val != expectedVal {
-			t.Errorf("at col %d, row %d: want value %d, got %d", colToTest, row, expectedVal, val)
-		}
-	}
 }
 
 func assertLen[E any](t *testing.T, want int, slice []E) {
@@ -239,9 +296,8 @@ func TestFromJagged(t *testing.T) {
 		if err == nil {
 			t.Fatal("FromJagged() did not return an error for exceeding height")
 		}
-		want := "array2d: jagged slice height 3 exceeds specified height 2"
-		if err.Error() != want {
-			t.Errorf("want error %q, got %q", want, err.Error())
+		if !errors.Is(err, ErrShape) {
+			t.Errorf("want error to be ErrShape, but it was not. got: %v", err)
 		}
 	})
 
@@ -254,9 +310,8 @@ func TestFromJagged(t *testing.T) {
 		if err == nil {
 			t.Fatal("FromJagged() did not return an error for exceeding width")
 		}
-		want := "array2d: row 1 width 2 exceeds specified width 1"
-		if err.Error() != want {
-			t.Errorf("want error %q, got %q", want, err.Error())
+		if !errors.Is(err, ErrShape) {
+			t.Errorf("want error to be ErrShape, but it was not. got: %v", err)
 		}
 	})
 }

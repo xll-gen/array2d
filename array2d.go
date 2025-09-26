@@ -5,27 +5,57 @@
 package array2d
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
 
+var (
+	// ErrOutOfBounds is returned when an index is outside the array's bounds.
+	ErrOutOfBounds = errors.New("array2d: index out of bounds")
+
+	// ErrShape is returned when the dimensions of a source do not match the
+	// specified height and width during array creation.
+	ErrShape = errors.New("array2d: invalid shape for creation")
+
+	// ErrNilDest is returned by Scan when the destination pointer is nil.
+	ErrNilDest = errors.New("array2d: destination for Scan cannot be nil")
+
+	// ErrDestLength is returned by Scan when the destination slice has an incorrect length.
+	ErrDestLength = errors.New("array2d: destination slice has incorrect length")
+)
+
 // New initializes a 2-dimensional array with all zero values.
-func New[T any](height, width int) Array2D[T] {
+// By default, it creates a row-major array.
+// To create a column-major array, pass true as the optional colMajor argument.
+func New[T any](height, width int, colMajor ...bool) Array2D[T] {
+	isColMajor := false
+	if len(colMajor) > 0 {
+		isColMajor = colMajor[0]
+	}
 	return Array2D[T]{
-		height: height,
-		width:  width,
-		slice:  make([]T, width*height),
+		height:   height,
+		width:    width,
+		slice:    make([]T, width*height),
+		colMajor: isColMajor,
 	}
 }
 
 // NewFilled initializes a 2-dimensional array with a value.
-func NewFilled[T any](height, width int, value T) Array2D[T] {
+// By default, it creates a row-major array.
+// To create a column-major array, pass true as the optional colMajor argument.
+func NewFilled[T any](height, width int, value T, colMajor ...bool) Array2D[T] {
+	isColMajor := false
+	if len(colMajor) > 0 {
+		isColMajor = colMajor[0]
+	}
 	slice := make([]T, width*height)
 	fill(slice, value)
 	return Array2D[T]{
-		height: height,
-		width:  width,
-		slice:  slice,
+		height:   height,
+		width:    width,
+		slice:    slice,
+		colMajor: isColMajor,
 	}
 }
 
@@ -34,30 +64,52 @@ func NewFilled[T any](height, width int, value T) Array2D[T] {
 //
 // Note: This function does not create a copy of the provided slice.
 // Modifications to the original slice will affect the new Array2D instance.
-func FromSlice[T any](height, width int, slice []T) (Array2D[T], error) {
+//
+// By default, it creates a row-major array.
+// To create a column-major array, pass true as the optional colMajor argument.
+func FromSlice[T any](height, width int, slice []T, colMajor ...bool) (Array2D[T], error) {
+	isColMajor := false
+	if len(colMajor) > 0 {
+		isColMajor = colMajor[0]
+	}
 	if len(slice) != width*height {
-		return Array2D[T]{}, fmt.Errorf("array2d: slice length %d does not match height*width %d", len(slice), width*height)
+		return Array2D[T]{}, fmt.Errorf("%w: slice length %d does not match height*width %d", ErrShape, len(slice), width*height)
 	}
 	return Array2D[T]{
-		height: height,
-		width:  width,
-		slice:  slice,
+		height:   height,
+		width:    width,
+		slice:    slice,
+		colMajor: isColMajor,
 	}, nil
 }
 
 // FromJagged creates a 2-dimensional array from a jagged slice.
 // It returns an error if the dimensions of the jagged slice exceed the specified
 // height or width.
-func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J) (Array2D[E], error) {
-	if len(jagged) > height {
-		return Array2D[E]{}, fmt.Errorf("array2d: jagged slice height %d exceeds specified height %d", len(jagged), height)
+//
+// By default, it creates a row-major array.
+// To create a column-major array, pass true as the optional colMajor argument.
+func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J, colMajor ...bool) (Array2D[E], error) {
+	isColMajor := false
+	if len(colMajor) > 0 {
+		isColMajor = colMajor[0]
 	}
-	arr := New[E](height, width)
+	if len(jagged) > height {
+		return Array2D[E]{}, fmt.Errorf("%w: jagged slice height %d exceeds specified height %d", ErrShape, len(jagged), height)
+	}
+	arr := New[E](height, width, isColMajor)
 	for y, row := range jagged {
 		if len(row) > width {
-			return Array2D[E]{}, fmt.Errorf("array2d: row %d width %d exceeds specified width %d", y, len(row), width)
+			return Array2D[E]{}, fmt.Errorf("%w: row %d width %d exceeds specified width %d", ErrShape, y, len(row), width)
 		}
-		copy(arr.Row(y), row)
+		if isColMajor {
+			for x, val := range row {
+				arr.setUnchecked(y, x, val)
+			}
+		} else {
+			r, _ := arr.Row(y)
+			copy(r, row)
+		}
 	}
 	return arr, nil
 }
@@ -66,104 +118,7 @@ func FromJagged[J ~[]S, S ~[]E, E any](height, width int, jagged J) (Array2D[E],
 type Array2D[T any] struct {
 	height, width int
 	slice         []T
-}
-
-// Iterator returns an iterator for the 2D array.
-// The iterator allows to range over all elements of the array, similar to sql.Rows.
-//
-// Example:
-//
-//	it := arr.Iterator()
-//	for it.Next() {
-//	    row, col, val := it.Value()
-//	    // ...
-//	}
-func (a *Array2D[T]) Iterator() *Iter[T] {
-	return &Iter[T]{
-		arr: a,
-		idx: -1,
-	}
-}
-
-// Iter is an iterator for the Array2D.
-type Iter[T any] struct {
-	arr *Array2D[T]
-	idx int
-}
-
-// Next advances the iterator to the next element.
-// It returns false when the iteration is complete.
-func (it *Iter[T]) Next() bool {
-	it.idx++
-	return it.idx < len(it.arr.slice)
-}
-
-// Value returns the current row, column, and value.
-func (it *Iter[T]) Value() (row, col int, value T) {
-	row = it.idx / it.arr.width
-	col = it.idx % it.arr.width
-	value = it.arr.slice[it.idx]
-	return
-}
-
-// RowIterator returns an iterator for a specific row of the 2D array.
-func (a *Array2D[T]) RowIterator(row int) *RowIter[T] {
-	if row < 0 || row >= a.height {
-		panic(fmt.Sprintf("array2d: row index out of range [%d] with height %d", row, a.height))
-	}
-	return &RowIter[T]{
-		arr: a,
-		row: row,
-		col: -1,
-	}
-}
-
-// RowIter is an iterator for the rows of an Array2D.
-type RowIter[T any] struct {
-	arr      *Array2D[T]
-	row, col int
-}
-
-// Next advances the iterator to the next row.
-// It returns false when the iteration is complete.
-func (it *RowIter[T]) Next() bool {
-	it.col++
-	return it.col < it.arr.width
-}
-
-// Value returns the current row index and a slice representing the row.
-func (it *RowIter[T]) Value() (col int, value T) {
-	return it.col, it.arr.getUnchecked(it.row, it.col)
-}
-
-// ColIterator returns an iterator for the columns of the 2D array.
-func (a *Array2D[T]) ColIterator(col int) *ColIter[T] {
-	if col < 0 || col >= a.width {
-		panic(fmt.Sprintf("array2d: col index out of range [%d] with width %d", col, a.width))
-	}
-	return &ColIter[T]{
-		arr: a,
-		col: col,
-		row: -1,
-	}
-}
-
-// ColIter is an iterator for the columns of an Array2D.
-type ColIter[T any] struct {
-	arr      *Array2D[T]
-	col, row int
-}
-
-// Next advances the iterator to the next column.
-// It returns false when the iteration is complete.
-func (it *ColIter[T]) Next() bool {
-	it.row++
-	return it.row < it.arr.height
-}
-
-// Value returns the current column index and a new slice containing the elements of that column.
-func (it *ColIter[T]) Value() (row int, value T) {
-	return it.row, it.arr.getUnchecked(it.row, it.col)
+	colMajor      bool
 }
 
 // String returns a string representation of this array.
@@ -188,37 +143,41 @@ func (a Array2D[T]) String() string {
 }
 
 // Get returns a value from the array.
-//
-// The function will panic on out-of-bounds access.
-func (a Array2D[T]) Get(row, col int) T {
-	if col < 0 || col >= a.width {
-		panic(fmt.Sprintf("array2d: col index out of range [%d] with width %d", col, a.width))
+// It returns the zero value for T and false if the access is out-of-bounds.
+func (a Array2D[T]) Get(row, col int) (T, bool) {
+	if col < 0 || col >= a.width || row < 0 || row >= a.height {
+		var zero T
+		return zero, false
 	}
-	if row < 0 || row >= a.height {
-		panic(fmt.Sprintf("array2d: row index out of range [%d] with height %d", row, a.height))
-	}
-	return a.getUnchecked(row, col)
+	return a.getUnchecked(row, col), true
 }
 
 func (a Array2D[T]) getUnchecked(row, col int) T {
+	if a.colMajor {
+		return a.slice[row+col*a.height]
+	}
 	return a.slice[col+row*a.width]
 }
 
 // Set sets a value in the array.
-//
-// The function will panic on out-of-bounds access.
-func (a Array2D[T]) Set(row, col int, value T) {
+// It returns an error on out-of-bounds access.
+func (a Array2D[T]) Set(row, col int, value T) error {
 	if col < 0 || col >= a.width {
-		panic(fmt.Sprintf("array2d: col index out of range [%d] with width %d", col, a.width))
+		return fmt.Errorf("%w: col index %d out of range for width %d", ErrOutOfBounds, col, a.width)
 	}
 	if row < 0 || row >= a.height {
-		panic(fmt.Sprintf("array2d: row index out of range [%d] with height %d", row, a.height))
+		return fmt.Errorf("%w: row index %d out of range for height %d", ErrOutOfBounds, row, a.height)
 	}
 	a.setUnchecked(row, col, value)
+	return nil
 }
 
 func (a Array2D[T]) setUnchecked(row, col int, value T) {
-	a.slice[col+row*a.width] = value
+	if a.colMajor {
+		a.slice[row+col*a.height] = value
+	} else {
+		a.slice[col+row*a.width] = value
+	}
 }
 
 // Width returns the width of this array. The maximum x value is Width()-1.
@@ -236,34 +195,52 @@ func (a Array2D[T]) Copy() Array2D[T] {
 	slice := make([]T, len(a.slice))
 	copy(slice, a.slice)
 	return Array2D[T]{
-		height: a.height,
-		width:  a.width,
-		slice:  slice,
+		height:   a.height,
+		width:    a.width,
+		slice:    slice,
+		colMajor: a.colMajor,
 	}
-}
-
-// RowSpan returns a mutable slice for part of a row. Changing values in this
-// slice will affect the array.
-func (a Array2D[T]) RowSpan(row, col1, col2 int) []T {
-	if row < 0 || row >= a.height {
-		panic(fmt.Sprintf("array2d: row index out of range [%d] with height %d", row, a.height))
-	}
-	if col1 < 0 || col1 >= a.width {
-		panic(fmt.Sprintf("array2d: col1 index out of range [%d] with width %d", col1, a.width))
-	}
-	if col2 < 0 || col2 >= a.width {
-		panic(fmt.Sprintf("array2d: col2 index out of range [%d] with width %d", col2, a.width))
-	}
-	return a.slice[col1+row*a.width : 1+col2+row*a.width]
 }
 
 // Row returns a mutable slice for an entire row. Changing values in this slice
 // will affect the array.
-func (a Array2D[T]) Row(row int) []T {
+//
+// For column-major arrays, this function returns a new slice containing a copy
+// of the data, so modifications to it will not affect the original array.
+func (a Array2D[T]) Row(row int) ([]T, bool) {
 	if row < 0 || row >= a.height {
-		panic(fmt.Sprintf("array2d: row index out of range [%d] with height %d", row, a.height))
+		return nil, false
 	}
-	return a.slice[row*a.width : a.width+row*a.width]
+	if a.colMajor {
+		r := make([]T, a.width)
+		for c := 0; c < a.width; c++ {
+			r[c] = a.getUnchecked(row, c)
+		}
+		return r, true
+	}
+	return a.slice[row*a.width : a.width+row*a.width], true
+}
+
+// Col returns a slice for an entire column.
+//
+// For row-major arrays, this function returns a new slice containing a copy
+// of the data, so modifications to it will not affect the original array.
+//
+// For column-major arrays, this function returns a mutable slice. Changing
+// values in this slice will affect the array.
+func (a Array2D[T]) Col(col int) ([]T, bool) {
+	if col < 0 || col >= a.width {
+		return nil, false
+	}
+	if a.colMajor {
+		start := col * a.height
+		return a.slice[start : start+a.height], true
+	}
+	c := make([]T, a.height)
+	for r := 0; r < a.height; r++ {
+		c[r] = a.getUnchecked(r, col)
+	}
+	return c, true
 }
 
 // Fill will assign all values inside the region to the specified value.
@@ -272,19 +249,31 @@ func (a Array2D[T]) Row(row int) []T {
 //
 // The method sorts the arguments, so col2 may be lower than col1 and row2 may be
 // lower than row1.
-func (a Array2D[T]) Fill(row1, col1, row2, col2 int, value T) {
+func (a Array2D[T]) Fill(row1, col1, row2, col2 int, value T) error {
 	if col1 < 0 || col1 >= a.width {
-		panic(fmt.Sprintf("array2d: col1 index out of range [%d] with width %d", col1, a.width))
+		return fmt.Errorf("%w: col1 index %d out of range for width %d", ErrOutOfBounds, col1, a.width)
 	}
 	if row1 < 0 || row1 >= a.height {
-		panic(fmt.Sprintf("array2d: row1 index out of range [%d] with height %d", row1, a.height))
+		return fmt.Errorf("%w: row1 index %d out of range for height %d", ErrOutOfBounds, row1, a.height)
 	}
 	if col2 < 0 || col2 >= a.width {
-		panic(fmt.Sprintf("array2d: col2 index out of range [%d] with width %d", col2, a.width))
+		return fmt.Errorf("%w: col2 index %d out of range for width %d", ErrOutOfBounds, col2, a.width)
 	}
 	if row2 < 0 || row2 >= a.height {
-		panic(fmt.Sprintf("array2d: row2 index out of range [%d] with height %d", row2, a.height))
+		return fmt.Errorf("%w: row2 index %d out of range for height %d", ErrOutOfBounds, row2, a.height)
 	}
+
+	if a.colMajor {
+		// For simplicity, fill cell by cell for column-major.
+		// This can be optimized if needed.
+		for r := row1; r <= row2; r++ {
+			for c := col1; c <= col2; c++ {
+				a.setUnchecked(r, c, value)
+			}
+		}
+		return nil
+	}
+
 	if col2 < col1 {
 		col1, col2 = col2, col1
 	}
@@ -296,6 +285,7 @@ func (a Array2D[T]) Fill(row1, col1, row2, col2 int, value T) {
 	for row := row1 + 1; row <= row2; row++ {
 		copy(a.slice[col1+row*a.width:1+col2+row*a.width], firstRow)
 	}
+	return nil
 }
 
 func fill[E any](slice []E, value E) {
@@ -307,4 +297,124 @@ func fill[E any](slice []E, value E) {
 	for i := 1; i < len(slice); i += i {
 		copy(slice[i:], slice[:i])
 	}
+}
+
+// Rows returns an iterator over the rows of the array, similar to sql.Rows.
+func (a *Array2D[T]) Rows() *Rows[T] {
+	return &Rows[T]{
+		arr: a,
+		row: -1,
+	}
+}
+
+// Rows is an iterator over the rows of an Array2D.
+type Rows[T any] struct {
+	arr *Array2D[T]
+	row int
+	err error
+}
+
+// Next advances the iterator to the next row.
+// It returns false when the iteration is complete.
+func (r *Rows[T]) Next() bool {
+	if r.row+1 >= r.arr.height {
+		return false
+	}
+	r.row++
+	return true
+}
+
+// Scan copies the current row's data into the provided destination slice.
+// The destination slice must have a length equal to the array's width.
+func (r *Rows[T]) Scan(dest *[]T) error {
+	if r.err != nil {
+		return r.err
+	}
+	if dest == nil {
+		r.err = ErrNilDest
+		return r.err
+	}
+	if len(*dest) != r.arr.width {
+		r.err = fmt.Errorf("%w: destination slice has length %d, but array width is %d", ErrDestLength, len(*dest), r.arr.width)
+		return r.err
+	}
+
+	// Optimization: avoid intermediate slice allocation by copying directly.
+	if r.arr.colMajor {
+		// For column-major, row elements are not contiguous. Copy element by element.
+		for c := 0; c < r.arr.width; c++ {
+			(*dest)[c] = r.arr.getUnchecked(r.row, c)
+		}
+	} else {
+		// For row-major, row elements are contiguous. A single copy is efficient.
+		sourceRow, _ := r.arr.Row(r.row)
+		copy(*dest, sourceRow)
+	}
+
+	return nil
+}
+
+// Err returns the error, if any, that was encountered during iteration.
+func (r *Rows[T]) Err() error {
+	return r.err
+}
+
+// Cols returns an iterator over the columns of the array, similar to sql.Rows.
+func (a *Array2D[T]) Cols() *Cols[T] {
+	return &Cols[T]{
+		arr: a,
+		col: -1,
+	}
+}
+
+// Cols is an iterator over the columns of an Array2D.
+type Cols[T any] struct {
+	arr *Array2D[T]
+	col int
+	err error
+}
+
+// Next advances the iterator to the next column.
+// It returns false when the iteration is complete.
+func (c *Cols[T]) Next() bool {
+	if c.col+1 >= c.arr.width {
+		return false
+	}
+	c.col++
+	return true
+}
+
+// Scan copies the current column's data into the provided destination slice.
+// The destination slice must have a length equal to the array's height.
+func (c *Cols[T]) Scan(dest *[]T) error {
+	if c.err != nil {
+		return c.err
+	}
+	if dest == nil {
+		c.err = ErrNilDest
+		return c.err
+	}
+	if len(*dest) != c.arr.height {
+		c.err = fmt.Errorf("%w: destination slice has length %d, but array height is %d", ErrDestLength, len(*dest), c.arr.height)
+		return c.err
+	}
+
+	// Optimization: avoid intermediate slice allocation by copying directly.
+	if !c.arr.colMajor {
+		// For row-major, column elements are not contiguous. Copy element by element.
+		for r := 0; r < c.arr.height; r++ {
+			(*dest)[r] = c.arr.getUnchecked(r, c.col)
+		}
+	} else {
+		// For column-major, column elements are contiguous. A single copy is efficient.
+		sourceCol, _ := c.arr.Col(c.col)
+		copy(*dest, sourceCol)
+	}
+
+	return nil
+}
+
+// Err returns the error, if any, that was encountered during iteration.
+func (c *Cols[T]) Err() error {
+	return c.err
 }
