@@ -12,7 +12,7 @@ import (
 func TestArray2D_stringEmpty(t *testing.T) {
 	arr := New[int](3, 3)
 	got := arr.String()
-	want := "[[0 0 0] [0 0 0] [0 0 0]]"
+	want := "Array2d[int] 3x3 [[0 0 0] [0 0 0] [0 0 0]]"
 	if got != want {
 		t.Errorf("want %q, got %q", want, got)
 	}
@@ -30,10 +30,49 @@ func TestArray2D_stringValues(t *testing.T) {
 	_ = arr.Set(2, 1, 8)
 	_ = arr.Set(2, 2, 9)
 	got := arr.String()
-	want := "[[1 2 3] [4 5 6] [7 8 9]]"
+	want := "Array2d[int] 3x3 [[1 2 3] [4 5 6] [7 8 9]]"
 	if got != want {
 		t.Errorf("want %q, got %q", want, got)
 	}
+}
+
+func TestArray2D_stringSummarized(t *testing.T) {
+	t.Run("summarize rows", func(t *testing.T) {
+		arr := New[int](12, 3)
+		for i := 0; i < arr.Height(); i++ {
+			for j := 0; j < arr.Width(); j++ {
+				_ = arr.Set(i, j, i*10+j)
+			}
+		}
+		got := arr.String()
+		want := "Array2d[int] 12x3 [[0 1 2] [10 11 12] [20 21 22] [30 31 32] [40 41 42] ... [70 71 72] [80 81 82] [90 91 92] [100 101 102] [110 111 112]]"
+		if got != want {
+			t.Errorf("want %q, got %q", want, got)
+		}
+	})
+
+	t.Run("summarize cols", func(t *testing.T) {
+		arr := New[int](3, 12)
+		for i := 0; i < arr.Height(); i++ {
+			for j := 0; j < arr.Width(); j++ {
+				_ = arr.Set(i, j, i*100+j)
+			}
+		}
+		got := arr.String()
+		want := "Array2d[int] 3x12 [[0 1 2 3 4 ... 7 8 9 10 11] [100 101 102 103 104 ... 107 108 109 110 111] [200 201 202 203 204 ... 207 208 209 210 211]]"
+		if got != want {
+			t.Errorf("want %q, got %q", want, got)
+		}
+	})
+
+	t.Run("summarize both", func(t *testing.T) {
+		arr := New[int](11, 11)
+		got := arr.String()
+		want := "Array2d[int] 11x11 [[0 0 0 0 0 ... 0 0 0 0 0] [0 0 0 0 0 ... 0 0 0 0 0] [0 0 0 0 0 ... 0 0 0 0 0] [0 0 0 0 0 ... 0 0 0 0 0] [0 0 0 0 0 ... 0 0 0 0 0] ... [0 0 0 0 0 ... 0 0 0 0 0] [0 0 0 0 0 ... 0 0 0 0 0] [0 0 0 0 0 ... 0 0 0 0 0] [0 0 0 0 0 ... 0 0 0 0 0] [0 0 0 0 0 ... 0 0 0 0 0]]"
+		if got != want {
+			t.Errorf("want %q, got %q", want, got)
+		}
+	})
 }
 
 func TestArray2D_fill(t *testing.T) {
@@ -233,7 +272,7 @@ func TestFromSlice(t *testing.T) {
 			t.Errorf("want width=3, height=2, got width=%d, height=%d", arr.Width(), arr.Height())
 		}
 
-		want := "[[1 2 3] [4 5 6]]"
+		want := "Array2d[int] 2x3 [[1 2 3] [4 5 6]]"
 		if got := arr.String(); got != want {
 			t.Errorf("want %q, got %q", want, got)
 		}
@@ -280,7 +319,7 @@ func TestFromJagged(t *testing.T) {
 			t.Errorf("want width=3, height=2, got width=%d, height=%d", arr.Width(), arr.Height())
 		}
 
-		want := "[[1 2 0] [3 4 5]]"
+		want := "Array2d[int] 2x3 [[1 2 0] [3 4 5]]"
 		if got := arr.String(); got != want {
 			t.Errorf("want %q, got %q", want, got)
 		}

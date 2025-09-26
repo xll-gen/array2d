@@ -7,6 +7,7 @@ package array2d
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -23,6 +24,13 @@ var (
 
 	// ErrDestLength is returned by Scan when the destination slice has an incorrect length.
 	ErrDestLength = errors.New("array2d: destination slice has incorrect length")
+)
+
+const (
+	// printThreshold is the size at which array printing is summarized.
+	printThreshold = 10
+	// edgeItems is the number of array elements to show for each edge.
+	edgeItems = 5
 )
 
 // New initializes a 2-dimensional array with all zero values.
@@ -123,14 +131,50 @@ type Array2D[T any] struct {
 
 // String returns a string representation of this array.
 func (a Array2D[T]) String() string {
+	var t T
+	typeName := reflect.TypeOf(t).Name()
+	if typeName == "" {
+		typeName = reflect.TypeOf(t).String()
+	}
+
 	var sb strings.Builder
+	fmt.Fprintf(&sb, "Array2d[%s] %dx%d ", typeName, a.height, a.width)
+
+	if a.height == 0 || a.width == 0 {
+		sb.WriteString("[]")
+		return sb.String()
+	}
+
+	summarizeRows := a.height > printThreshold
+	summarizeCols := a.width > printThreshold
+
 	sb.WriteByte('[')
+
 	for y := 0; y < a.height; y++ {
+		if summarizeRows && y == edgeItems {
+			if y > 0 {
+				sb.WriteByte(' ')
+			}
+			sb.WriteString("...")
+			y = a.height - edgeItems - 1 // The loop will increment to a.height - edgeItems
+			continue
+		}
+
 		if y > 0 {
 			sb.WriteByte(' ')
 		}
 		sb.WriteByte('[')
+
 		for x := 0; x < a.width; x++ {
+			if summarizeCols && x == edgeItems {
+				if x > 0 {
+					sb.WriteByte(' ')
+				}
+				sb.WriteString("...")
+				x = a.width - edgeItems - 1 // The loop will increment to a.width - edgeItems
+				continue
+			}
+
 			if x > 0 {
 				sb.WriteByte(' ')
 			}
@@ -138,6 +182,7 @@ func (a Array2D[T]) String() string {
 		}
 		sb.WriteByte(']')
 	}
+
 	sb.WriteByte(']')
 	return sb.String()
 }
