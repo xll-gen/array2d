@@ -28,8 +28,12 @@ Package array2d contains an implementation of a 2D array.
 		- [func (Array2D\[T\]) String](#func-array2dt-string)
 		- [func (Array2D\[T\]) Height](#func-array2dt-height)
 		- [func (Array2D\[T\]) Width](#func-array2dt-width)
+		- [func (Array2D\[T\]) ToSlices](#func-array2dt-toslices)
+		- [func (Array2D\[T\]) ToSlicesByCol](#func-array2dt-toslicesbycol)
 		- [func (\*Array2D\[T\]) Rows](#func-array2dt-rows)
+		- [func (\*Rows\[T\]) Index](#func-rowst-index)
 		- [func (\*Array2D\[T\]) Cols](#func-array2dt-cols)
+		- [func (\*Cols\[T\]) Index](#func-colst-index)
 	- [License](#license)
 
 ## type Array2D
@@ -172,6 +176,28 @@ func (a Array2D[T]) Width() int
 
 Width returns the width of this array. The maximum x value is Width()-1.
 
+### func (Array2D[T]) ToSlices
+
+```go
+func (a Array2D[T]) ToSlices() [][]T
+```
+
+ToSlices returns a slice of slices representation of the array, organized by rows.
+
+- For row-major arrays, this is a zero-copy operation (sub-slices of the underlying array).
+- For column-major arrays, this returns copies of each row (modifying the result does **not** affect the original array).
+
+### func (Array2D[T]) ToSlicesByCol
+
+```go
+func (a Array2D[T]) ToSlicesByCol() [][]T
+```
+
+ToSlicesByCol returns a slice of slices representation of the array, organized by columns.
+
+- For column-major arrays, this is a zero-copy operation (sub-slices of the underlying array).
+- For row-major arrays, this returns copies of each column (modifying the result does **not** affect the original array).
+
 ### func (*Array2D[T]) Rows
 
 ```go
@@ -192,6 +218,14 @@ for rows.Next() {
 }
 ```
 
+### func (*Rows[T]) Index
+
+```go
+func (r *Rows[T]) Index() int
+```
+
+Index returns the current row index. It returns -1 if Next has not been called yet.
+
 ### func (*Array2D[T]) Cols
 
 ```go
@@ -211,6 +245,14 @@ for cols.Next() {
     // use colData
 }
 ```
+
+### func (*Cols[T]) Index
+
+```go
+func (c *Cols[T]) Index() int
+```
+
+Index returns the current column index. It returns -1 if Next has not been called yet.
 
 ## License
 
