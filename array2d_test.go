@@ -5,6 +5,7 @@ package array2d
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -447,6 +448,28 @@ func TestArray2D_ToSlicesByCol(t *testing.T) {
 		got, _ := arr.Get(2, 0)
 		if got != 3 {
 			t.Errorf("modification on slice did not affect original array. got %d, want 3", got)
+		}
+	})
+}
+
+func TestMap(t *testing.T) {
+	t.Run("int to string", func(t *testing.T) {
+		arr := New[int](2, 3)
+		// [[0 1 2]
+		//  [3 4 5]]
+		for i := 0; i < arr.Height(); i++ {
+			for j := 0; j < arr.Width(); j++ {
+				_ = arr.Set(i, j, i*arr.Width()+j)
+			}
+		}
+
+		mappedArr := Map(arr, func(v int) string {
+			return fmt.Sprintf("v%d", v)
+		})
+
+		want := "Array2d[string] 2x3 [[v0 v1 v2] [v3 v4 v5]]"
+		if got := mappedArr.String(); got != want {
+			t.Errorf("Map() result incorrect.\nwant: %s\ngot:  %s", want, got)
 		}
 	})
 }

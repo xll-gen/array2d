@@ -34,6 +34,7 @@ Package array2d contains an implementation of a 2D array.
 		- [func (\*Rows\[T\]) Index](#func-rowst-index)
 		- [func (\*Array2D\[T\]) Cols](#func-array2dt-cols)
 		- [func (\*Cols\[T\]) Index](#func-colst-index)
+		- [func Map](#func-map)
 	- [License](#license)
 
 ## type Array2D
@@ -253,6 +254,25 @@ func (c *Cols[T]) Index() int
 ```
 
 Index returns the current column index. It returns -1 if Next has not been called yet.
+
+### func Map
+
+```go
+func Map[T any, U any](a Array2D[T], f func(v T) U) Array2D[U]
+```
+
+Map creates a new Array2D by applying a function to each element of the input array.  
+The new array will have the same dimensions and memory layout (row/column-major) as the original.  
+The mapping function `f` is applied to each element of type `T` to produce an element of type `U`.
+
+**Example:**
+```go
+arr := array2d.NewFilled[int](2, 3, 1)
+mapped := array2d.Map(arr, func(v int) string {
+    return fmt.Sprintf("val:%d", v)
+})
+fmt.Println(mapped)
+```
 
 ## License
 

@@ -162,6 +162,23 @@ func (a Array2D[T]) ToSlicesByCol() [][]T {
 	return slices
 }
 
+// Map creates a new Array2D by applying a function to each element of the input array.
+// The new array will have the same dimensions and memory layout (row/column-major)
+// as the original. The mapping function f is applied to each element of type T
+// to produce an element of type U.
+func Map[T any, U any](a Array2D[T], f func(v T) U) Array2D[U] {
+	newSlice := make([]U, len(a.slice))
+	for i, v := range a.slice {
+		newSlice[i] = f(v)
+	}
+	return Array2D[U]{
+		height:   a.height,
+		width:    a.width,
+		slice:    newSlice,
+		colMajor: a.colMajor,
+	}
+}
+
 // Array2D is a 2-dimensional array.
 type Array2D[T any] struct {
 	height, width int
@@ -329,8 +346,8 @@ func (a Array2D[T]) Col(col int) ([]T, bool) {
 }
 
 // Fill will assign all values inside the region to the specified value.
-// The coordinates are inclusive, meaning all values from [x1,y1] including
-// [x1,y1] to [x2,y2] including [x2,y2] are set.
+// The coordinates are inclusive, meaning all values from [row1,col1] including
+// [row1,col1] to [row2,col2] including [row2,col2] are set.
 //
 // The method sorts the arguments, so col2 may be lower than col1 and row2 may be
 // lower than row1.
