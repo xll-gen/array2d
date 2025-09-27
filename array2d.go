@@ -165,18 +165,24 @@ func (a Array2D[T]) ToSlicesByCol() [][]T {
 // Map creates a new Array2D by applying a function to each element of the input array.
 // The new array will have the same dimensions and memory layout (row/column-major)
 // as the original. The mapping function f is applied to each element of type T
-// to produce an element of type U.
-func Map[T any, U any](a Array2D[T], f func(v T) U) Array2D[U] {
+// to produce an element of type U. If f returns an error for any element,
+// Map stops and returns the error along with the partially filled Array2D.
+func Map[T any, U any](a Array2D[T], f func(v T) (U, error)) (Array2D[U], error) {
 	newSlice := make([]U, len(a.slice))
+	var err error
+loop:
 	for i, v := range a.slice {
-		newSlice[i] = f(v)
+		newSlice[i], err = f(v)
+		if err != nil {
+			break loop
+		}
 	}
 	return Array2D[U]{
 		height:   a.height,
 		width:    a.width,
 		slice:    newSlice,
 		colMajor: a.colMajor,
-	}
+	}, err
 }
 
 // Array2D is a 2-dimensional array.

@@ -258,19 +258,26 @@ Index returns the current column index. It returns -1 if Next has not been calle
 ### func Map
 
 ```go
-func Map[T any, U any](a Array2D[T], f func(v T) U) Array2D[U]
+func Map[T any, U any](a Array2D[T], f func(v T) (U, error)) (Array2D[U], error)
 ```
 
 Map creates a new Array2D by applying a function to each element of the input array.  
 The new array will have the same dimensions and memory layout (row/column-major) as the original.  
-The mapping function `f` is applied to each element of type `T` to produce an element of type `U`.
+The mapping function `f` is applied to each element of type `T` to produce an element of type `U`.  
+If `f` returns an error for any element, Map stops and returns the error along with the partially filled Array2D.
 
 **Example:**
 ```go
 arr := array2d.NewFilled[int](2, 3, 1)
-mapped := array2d.Map(arr, func(v int) string {
-    return fmt.Sprintf("val:%d", v)
+mapped, err := array2d.Map(arr, func(v int) (string, error) {
+    if v < 0 {
+        return "", fmt.Errorf("negative value")
+    }
+    return fmt.Sprintf("val:%d", v), nil
 })
+if err != nil {
+    // handle error
+}
 fmt.Println(mapped)
 ```
 

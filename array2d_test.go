@@ -463,13 +463,45 @@ func TestMap(t *testing.T) {
 			}
 		}
 
-		mappedArr := Map(arr, func(v int) string {
-			return fmt.Sprintf("v%d", v)
+		mappedArr, err := Map(arr, func(v int) (string, error) {
+			return fmt.Sprintf("v%d", v), nil
 		})
+		if err != nil {
+			t.Fatalf("Map() returned an unexpected error: %v", err)
+		}
 
 		want := "Array2d[string] 2x3 [[v0 v1 v2] [v3 v4 v5]]"
 		if got := mappedArr.String(); got != want {
 			t.Errorf("Map() result incorrect.\nwant: %s\ngot:  %s", want, got)
+		}
+	})
+
+	t.Run("error case", func(t *testing.T) {
+		arr := New[int](2, 2)
+		// [[0 1]
+		//  [2 3]]
+		for i := 0; i < arr.Height(); i++ {
+			for j := 0; j < arr.Width(); j++ {
+				_ = arr.Set(i, j, i*arr.Width()+j)
+			}
+		}
+
+		testErr := errors.New("test error")
+		partiallyMapped, err := Map(arr, func(v int) (string, error) {
+			if v == 2 {
+				return "", testErr
+			}
+			return fmt.Sprintf("v%d", v), nil
+		})
+
+		if !errors.Is(err, testErr) {
+			t.Fatalf("Map() did not return the expected error. want %v, got %v", testErr, err)
+		}
+
+		// Check the partially filled array
+		want := "Array2d[string] 2x2 [[v0 v1] [ ]]"
+		if got := partiallyMapped.String(); got != want {
+			t.Errorf("Partially mapped array is incorrect.\nwant: %s\ngot:  %s", want, got)
 		}
 	})
 }
